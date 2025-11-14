@@ -61,6 +61,7 @@ impl AuthToken {
     }
 }
 
+#[derive(Clone)]
 pub struct AuthManager {
     token: Option<AuthToken>,
 }

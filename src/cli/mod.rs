@@ -54,4 +54,7 @@ pub enum Commands {
 
     /// Show status and configuration
     Status,
+
+    /// Launch the GUI
+    Gui,
 }

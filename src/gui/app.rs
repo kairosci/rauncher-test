@@ -1,0 +1,287 @@
+use eframe::egui;
+use poll_promise::Promise;
+use std::sync::{Arc, Mutex};
+
+use crate::api::Game;
+use crate::auth::AuthManager;
+use crate::config::Config;
+use crate::games::{GameManager, InstalledGame};
+use crate::Result;
+
+use super::auth_view::AuthView;
+use super::library_view::{LibraryAction, LibraryView};
+use super::styles;
+
+enum AppState {
+    Login,
+    Library,
+}
+
+pub struct LauncherApp {
+    state: AppState,
+    auth: Arc<Mutex<AuthManager>>,
+    config: Arc<Config>,
+    auth_view: AuthView,
+    library_view: LibraryView,
+    library_games: Vec<Game>,
+    installed_games: Vec<InstalledGame>,
+    status_message: String,
+    loading_library: bool,
+    library_promise: Option<Promise<Result<Vec<Game>>>>,
+}
+
+impl LauncherApp {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        styles::setup_custom_style(&cc.egui_ctx);
+
+        let config = Config::load().unwrap_or_default();
+        let auth = AuthManager::new().unwrap_or_default();
+
+        // Check if already authenticated
+        let is_authenticated = auth.is_authenticated();
+
+        Self {
+            state: if is_authenticated {
+                AppState::Library
+            } else {
+                AppState::Login
+            },
+            auth: Arc::new(Mutex::new(auth)),
+            config: Arc::new(config),
+            auth_view: AuthView::default(),
+            library_view: LibraryView::default(),
+            library_games: Vec::new(),
+            installed_games: Vec::new(),
+            status_message: String::new(),
+            loading_library: false,
+            library_promise: None,
+        }
+    }
+
+    fn handle_login(&mut self) {
+        // For demo purposes, we'll proceed to library view
+        // In a real implementation, this would handle OAuth authentication
+        self.state = AppState::Library;
+        self.load_library();
+        self.load_installed_games();
+    }
+
+    fn load_library(&mut self) {
+        if self.loading_library {
+            return;
+        }
+
+        self.loading_library = true;
+        let _auth = Arc::clone(&self.auth);
+        let _config = Arc::clone(&self.config);
+
+        // Create a demo library for now since Epic API integration is not complete
+        self.library_games = vec![
+            Game {
+                app_name: "demo_game_1".to_string(),
+                app_title: "Demo Game 1".to_string(),
+                app_version: "1.0.0".to_string(),
+                install_path: None,
+            },
+            Game {
+                app_name: "demo_game_2".to_string(),
+                app_title: "Epic Adventure".to_string(),
+                app_version: "2.1.0".to_string(),
+                install_path: None,
+            },
+            Game {
+                app_name: "demo_game_3".to_string(),
+                app_title: "Racing Challenge".to_string(),
+                app_version: "1.5.2".to_string(),
+                install_path: None,
+            },
+            Game {
+                app_name: "demo_game_4".to_string(),
+                app_title: "Strategy Master".to_string(),
+                app_version: "3.0.1".to_string(),
+                install_path: None,
+            },
+            Game {
+                app_name: "demo_game_5".to_string(),
+                app_title: "Space Shooter".to_string(),
+                app_version: "1.2.0".to_string(),
+                install_path: None,
+            },
+        ];
+        self.loading_library = false;
+
+        // In real implementation, would use:
+        // let promise = Promise::spawn_async(async move {
+        //     let auth_guard = auth.lock().unwrap();
+        //     let manager = GameManager::new((*config).clone(), (*auth_guard).clone())?;
+        //     manager.list_library().await
+        // });
+        // self.library_promise = Some(promise);
+    }
+
+    fn load_installed_games(&mut self) {
+        if let Ok(manager) = GameManager::new((*self.config).clone(), (*self.auth.lock().unwrap()).clone()) {
+            if let Ok(games) = manager.list_installed() {
+                self.installed_games = games;
+            }
+        }
+    }
+
+    fn handle_install(&mut self, app_name: String) {
+        self.status_message = format!("Installing {}...", app_name);
+        
+        // For demo purposes, we'll create a mock installation
+        let config = Arc::clone(&self.config);
+        let app_name_clone = app_name.clone();
+        
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            
+            // Create a demo installed game entry
+            let game = InstalledGame {
+                app_name: app_name_clone.clone(),
+                app_title: format!("Game: {}", app_name_clone),
+                app_version: "1.0.0".to_string(),
+                install_path: config.install_dir.join(&app_name_clone),
+                executable: "game.exe".to_string(),
+            };
+            
+            // Save the installation record
+            let _ = game.save(&config);
+        });
+        
+        // Refresh installed games after a delay
+        // In a real implementation, this would trigger a UI refresh
+    }
+
+    fn handle_launch(&mut self, app_name: String) {
+        let config = (*self.config).clone();
+        let auth = (*self.auth.lock().unwrap()).clone();
+        
+        match GameManager::new(config, auth) {
+            Ok(manager) => {
+                match manager.launch_game(&app_name) {
+                    Ok(()) => {
+                        self.status_message = format!("Launched {}", app_name);
+                    }
+                    Err(e) => {
+                        self.status_message = format!("Failed to launch {}: {}", app_name, e);
+                    }
+                }
+            }
+            Err(e) => {
+                self.status_message = format!("Error: {}", e);
+            }
+        }
+    }
+
+    fn handle_uninstall(&mut self, app_name: String) {
+        let config = (*self.config).clone();
+        let auth = (*self.auth.lock().unwrap()).clone();
+        
+        match GameManager::new(config, auth) {
+            Ok(manager) => {
+                match manager.uninstall_game(&app_name) {
+                    Ok(()) => {
+                        self.status_message = format!("Uninstalled {}", app_name);
+                        self.load_installed_games();
+                    }
+                    Err(e) => {
+                        self.status_message = format!("Failed to uninstall {}: {}", app_name, e);
+                    }
+                }
+            }
+            Err(e) => {
+                self.status_message = format!("Error: {}", e);
+            }
+        }
+    }
+}
+
+impl eframe::App for LauncherApp {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Check for library loading completion
+        if let Some(promise) = &self.library_promise {
+            if let Some(result) = promise.ready() {
+                match result {
+                    Ok(games) => {
+                        self.library_games = games.clone();
+                        self.status_message = "Library loaded successfully".to_string();
+                    }
+                    Err(e) => {
+                        self.status_message = format!("Failed to load library: {}", e);
+                    }
+                }
+                self.loading_library = false;
+                self.library_promise = None;
+            }
+        }
+
+        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.heading("R Games Launcher");
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    match self.state {
+                        AppState::Library => {
+                            if ui.button("Logout").clicked() {
+                                if let Ok(mut auth) = self.auth.lock() {
+                                    let _ = auth.logout();
+                                }
+                                self.state = AppState::Login;
+                                self.library_games.clear();
+                                self.installed_games.clear();
+                            }
+                        }
+                        _ => {}
+                    }
+                });
+            });
+        });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            match self.state {
+                AppState::Login => {
+                    if self.auth_view.ui(ui, &mut *self.auth.lock().unwrap()) {
+                        self.handle_login();
+                    }
+                }
+                AppState::Library => {
+                    if let Some(action) = self.library_view.ui(ui, &self.library_games, &self.installed_games) {
+                        match action {
+                            LibraryAction::Install(app_name) => {
+                                self.handle_install(app_name.clone());
+                                // Mark installation complete after delay
+                                let mut view = self.library_view.clone();
+                                let app_name_clone = app_name.clone();
+                                std::thread::spawn(move || {
+                                    std::thread::sleep(std::time::Duration::from_secs(3));
+                                    view.mark_installation_complete(&app_name_clone);
+                                });
+                            }
+                            LibraryAction::Launch(app_name) => {
+                                self.handle_launch(app_name);
+                            }
+                            LibraryAction::Uninstall(app_name) => {
+                                self.handle_uninstall(app_name);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Status bar at bottom
+            if !self.status_message.is_empty() {
+                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.label(&self.status_message);
+                    if ui.button("Clear").clicked() {
+                        self.status_message.clear();
+                    }
+                });
+            }
+        });
+
+        // Request repaint for animations/updates
+        ctx.request_repaint_after(std::time::Duration::from_millis(100));
+    }
+}

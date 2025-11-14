@@ -172,6 +172,27 @@ async fn main() -> Result<()> {
                 println!("Data Directory: {:?}", data_dir);
             }
         }
+
+        Commands::Gui => {
+            use r_games_launcher::gui::LauncherApp;
+            
+            let native_options = eframe::NativeOptions {
+                viewport: egui::ViewportBuilder::default()
+                    .with_inner_size([1200.0, 800.0])
+                    .with_min_inner_size([800.0, 600.0])
+                    .with_title("R Games Launcher"),
+                ..Default::default()
+            };
+
+            if let Err(e) = eframe::run_native(
+                "R Games Launcher",
+                native_options,
+                Box::new(|cc| Ok(Box::new(LauncherApp::new(cc)))),
+            ) {
+                eprintln!("Failed to run GUI: {}", e);
+                std::process::exit(1);
+            }
+        }
     }
 
     Ok(())
