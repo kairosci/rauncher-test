@@ -1,4 +1,4 @@
-# TODO List - R Games Launcher
+# TODO List - Rauncher
 
 This document outlines future improvements and enhancements to make the launcher more robust and functional.
 
