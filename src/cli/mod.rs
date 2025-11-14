@@ -59,7 +59,7 @@ pub enum Commands {
     Update {
         /// App name of the game to check/update
         app_name: String,
-        
+
         /// Only check for updates, don't install them
         #[arg(short, long)]
         check_only: bool,
@@ -69,11 +69,11 @@ pub enum Commands {
     CloudSave {
         /// App name of the game
         app_name: String,
-        
+
         /// Download cloud saves
         #[arg(short, long)]
         download: bool,
-        
+
         /// Upload local saves to cloud
         #[arg(short, long)]
         upload: bool,

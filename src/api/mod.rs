@@ -5,6 +5,9 @@ use std::time::Duration;
 use crate::auth::AuthToken;
 use crate::{Error, Result};
 
+// Request timeout configuration
+const REQUEST_TIMEOUT_SECS: u64 = 30;
+
 // Epic Games Store API endpoints
 const OAUTH_TOKEN_URL: &str =
     "https://account-public-service-prod.ol.epicgames.com/account/api/oauth/token";
@@ -35,12 +38,12 @@ struct OAuthTokenResponse {
     account_id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct DeviceAuthResponse {
-    verification_uri_complete: String,
-    user_code: String,
-    device_code: String,
-    expires_in: i64,
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceAuthResponse {
+    pub verification_uri_complete: String,
+    pub user_code: String,
+    pub device_code: String,
+    pub expires_in: i64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -146,20 +149,16 @@ impl EpicClient {
     pub fn new() -> Result<Self> {
         let client = Client::builder()
             .user_agent("r-games-launcher/0.1.0")
+            .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
             .build()?;
 
         Ok(Self { client })
     }
 
-    /// Authenticate with Epic Games using device code flow
-    pub async fn authenticate(&self) -> Result<(String, String, AuthToken)> {
-        // TODO: Implement rate limiting and exponential backoff for API requests
-        // TODO: Add timeout configuration for network requests
-        // TODO: Handle network interruptions gracefully with retry logic
-        
-        // Step 1: Request device authorization
+    /// Request device authorization (Step 1 of OAuth device flow)
+    pub async fn request_device_auth(&self) -> Result<DeviceAuthResponse> {
         log::info!("Requesting device authorization from Epic Games");
-        
+
         let device_auth_response = self
             .client
             .post(DEVICE_AUTH_URL)
@@ -178,72 +177,88 @@ impl EpicClient {
         }
 
         let device_auth: DeviceAuthResponse = device_auth_response.json().await?;
-        
+
         log::debug!(
             "Device code received. Verification URL: {}",
             device_auth.verification_uri_complete
         );
 
-        // Step 2: Poll for token
+        Ok(device_auth)
+    }
+
+    /// Poll for token using device code (Step 2 of OAuth device flow)
+    pub async fn poll_for_token(&self, device_code: &str) -> Result<Option<AuthToken>> {
+        let response = self
+            .client
+            .post(OAUTH_TOKEN_URL)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .basic_auth(CLIENT_ID, Some(CLIENT_SECRET))
+            .form(&[("grant_type", "device_code"), ("device_code", device_code)])
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let oauth_response: OAuthTokenResponse = response.json().await?;
+
+            log::info!("Successfully authenticated with Epic Games");
+
+            let token = AuthToken {
+                access_token: oauth_response.access_token,
+                refresh_token: oauth_response.refresh_token,
+                expires_at: chrono::Utc::now()
+                    + chrono::Duration::seconds(oauth_response.expires_in),
+                account_id: oauth_response.account_id,
+            };
+
+            return Ok(Some(token));
+        }
+
+        // Check if we got an error that means we should continue polling
+        let status = response.status();
+        if status == 400 {
+            // This is expected while waiting for user to authenticate
+            log::debug!("Still waiting for user authentication...");
+            return Ok(None);
+        }
+
+        // Any other error should be reported
+        let error_text = response.text().await.unwrap_or_default();
+        Err(Error::Auth(format!(
+            "Authentication failed: {} - {}",
+            status, error_text
+        )))
+    }
+
+    /// Authenticate with Epic Games using device code flow (combined method for CLI)
+    pub async fn authenticate(&self) -> Result<(String, String, AuthToken)> {
+        // Step 1: Request device authorization
+        let device_auth = self.request_device_auth().await?;
+
         let device_code = device_auth.device_code.clone();
         let user_code = device_auth.user_code.clone();
         let verification_url = device_auth.verification_uri_complete.clone();
-        
+
+        // Step 2: Poll for token
         // Poll every 5 seconds for up to 10 minutes
         let max_attempts = 120; // 10 minutes
         let poll_interval = Duration::from_secs(5);
-        
+
         for attempt in 0..max_attempts {
             if attempt > 0 {
                 tokio::time::sleep(poll_interval).await;
             }
-            
-            log::debug!("Polling for token (attempt {}/{})", attempt + 1, max_attempts);
-            
-            let response = self
-                .client
-                .post(OAUTH_TOKEN_URL)
-                .header("Content-Type", "application/x-www-form-urlencoded")
-                .basic_auth(CLIENT_ID, Some(CLIENT_SECRET))
-                .form(&[
-                    ("grant_type", "device_code"),
-                    ("device_code", &device_code),
-                ])
-                .send()
-                .await?;
 
-            if response.status().is_success() {
-                let oauth_response: OAuthTokenResponse = response.json().await?;
-                
-                log::info!("Successfully authenticated with Epic Games");
-                
-                let token = AuthToken {
-                    access_token: oauth_response.access_token,
-                    refresh_token: oauth_response.refresh_token,
-                    expires_at: chrono::Utc::now()
-                        + chrono::Duration::seconds(oauth_response.expires_in),
-                    account_id: oauth_response.account_id,
-                };
-                
+            log::debug!(
+                "Polling for token (attempt {}/{})",
+                attempt + 1,
+                max_attempts
+            );
+
+            if let Some(token) = self.poll_for_token(&device_code).await? {
                 return Ok((user_code, verification_url, token));
             }
-            
-            // Check if we got an error that means we should continue polling
-            let status = response.status();
-            if status == 400 {
-                // This is expected while waiting for user to authenticate
-                log::debug!("Still waiting for user authentication...");
-                continue;
-            }
-            
-            // Any other error should be reported
-            let error_text = response.text().await.unwrap_or_default();
-            return Err(Error::Auth(format!(
-                "Authentication failed: {} - {}",
-                status, error_text
-            )));
         }
-        
+
         Err(Error::Auth(
             "Authentication timed out. Please try again.".to_string(),
         ))
@@ -252,7 +267,7 @@ impl EpicClient {
     /// Refresh an expired access token
     pub async fn refresh_token(&self, refresh_token: &str) -> Result<AuthToken> {
         log::info!("Refreshing access token");
-        
+
         let response = self
             .client
             .post(OAUTH_TOKEN_URL)
@@ -275,7 +290,7 @@ impl EpicClient {
         }
 
         let oauth_response: OAuthTokenResponse = response.json().await?;
-        
+
         log::info!("Successfully refreshed access token");
 
         Ok(AuthToken {
@@ -289,12 +304,9 @@ impl EpicClient {
     /// Get the user's game library
     pub async fn get_games(&self, token: &AuthToken) -> Result<Vec<Game>> {
         log::info!("Fetching game library from Epic Games");
-        
-        let library_url = format!(
-            "{}/users/{}/items",
-            LIBRARY_API_URL, token.account_id
-        );
-        
+
+        let library_url = format!("{}/users/{}/items", LIBRARY_API_URL, token.account_id);
+
         let response = self
             .client
             .get(&library_url)
@@ -312,13 +324,13 @@ impl EpicClient {
         }
 
         let library_response: LibraryResponse = response.json().await?;
-        
+
         log::debug!("Found {} items in library", library_response.records.len());
-        
+
         // Convert library items to games
         // Note: We need to fetch additional details for each game
         let mut games = Vec::new();
-        
+
         for item in library_response.records {
             // For now, we'll create basic game entries
             // In a full implementation, we'd fetch catalog details for each
@@ -329,22 +341,19 @@ impl EpicClient {
                 install_path: None,
             });
         }
-        
+
         log::info!("Successfully fetched {} games from library", games.len());
-        
+
         Ok(games)
     }
 
     /// Get game manifest URL for download
     pub async fn get_game_manifest(&self, token: &AuthToken, app_name: &str) -> Result<String> {
         log::info!("Fetching manifest for game: {}", app_name);
-        
+
         // Get asset information from launcher API
-        let asset_url = format!(
-            "{}/assets/Windows?label=Live",
-            LAUNCHER_API_URL
-        );
-        
+        let asset_url = format!("{}/assets/Windows?label=Live", LAUNCHER_API_URL);
+
         let response = self
             .client
             .get(&asset_url)
@@ -362,44 +371,48 @@ impl EpicClient {
         }
 
         let assets: Vec<AssetResponse> = response.json().await?;
-        
+
         // Find the asset for the requested app
         let asset = assets
             .iter()
             .find(|a| a.app_name.eq_ignore_ascii_case(app_name))
             .ok_or_else(|| Error::GameNotFound(app_name.to_string()))?;
-        
+
         log::info!("Found asset for {}: {}", app_name, asset.id);
-        
+
         // Return the asset ID which would be used to construct manifest URL
         // In a real implementation, we would fetch the actual manifest from CDN
         Ok(asset.id.clone())
     }
 
     /// Download and parse game manifest
-    pub async fn download_manifest(&self, token: &AuthToken, app_name: &str) -> Result<GameManifest> {
+    pub async fn download_manifest(
+        &self,
+        token: &AuthToken,
+        app_name: &str,
+    ) -> Result<GameManifest> {
         // TODO: Implement real CDN manifest download
         // TODO: Parse manifest URL from asset metadata (build_info or manifest_location fields)
         // TODO: Handle gzip decompression for manifest files
         // TODO: Validate manifest signature/checksum for security
         // TODO: Cache manifests to reduce API calls
         // TODO: Handle manifest format version differences
-        
+
         log::info!("Downloading manifest for game: {}", app_name);
-        
+
         // Get asset ID first
         let _asset_id = self.get_game_manifest(token, app_name).await?;
-        
+
         // In a real implementation, we would:
         // 1. Get the manifest URL from the asset metadata
         // 2. Download the manifest file (usually gzipped JSON)
         // 3. Decompress if needed
         // 4. Parse the manifest JSON
-        
+
         // For now, create a minimal manifest structure for testing
         // This allows the installation process to proceed
         log::warn!("Using mock manifest data - real CDN download not implemented");
-        
+
         Ok(GameManifest {
             manifest_file_version: "21".to_string(),
             is_file_data: true,
@@ -426,28 +439,37 @@ impl EpicClient {
         // TODO: Support resume capability for interrupted downloads
         // TODO: Add download progress reporting
         // TODO: Implement bandwidth throttling option
-        
+
         log::debug!("Downloading chunk: {}", chunk_guid);
-        
+
         // In a real implementation:
         // 1. Construct CDN URL for the chunk
         // 2. Download the chunk data
         // 3. Verify integrity with SHA hash
         // 4. Decompress if needed
-        
+
         log::warn!("Chunk download not implemented - returning empty data");
         Ok(Vec::new())
     }
 
     /// Check for game updates
-    pub async fn check_for_updates(&self, token: &AuthToken, app_name: &str, current_version: &str) -> Result<Option<String>> {
+    pub async fn check_for_updates(
+        &self,
+        token: &AuthToken,
+        app_name: &str,
+        current_version: &str,
+    ) -> Result<Option<String>> {
         log::info!("Checking for updates for {}", app_name);
-        
+
         // Get latest manifest
         let manifest = self.download_manifest(token, app_name).await?;
-        
+
         if manifest.app_version != current_version {
-            log::info!("Update available: {} -> {}", current_version, manifest.app_version);
+            log::info!(
+                "Update available: {} -> {}",
+                current_version,
+                manifest.app_version
+            );
             Ok(Some(manifest.app_version))
         } else {
             log::info!("Game is up to date");
@@ -456,20 +478,24 @@ impl EpicClient {
     }
 
     /// Get cloud saves for a game
-    pub async fn get_cloud_saves(&self, _token: &AuthToken, app_name: &str) -> Result<Vec<CloudSave>> {
+    pub async fn get_cloud_saves(
+        &self,
+        _token: &AuthToken,
+        app_name: &str,
+    ) -> Result<Vec<CloudSave>> {
         // TODO: Implement real cloud save API integration
         // TODO: Query Epic's cloud save endpoints (per-game save metadata)
         // TODO: Handle pagination for games with many saves
         // TODO: Parse save metadata (timestamps, size, etc.)
         // TODO: Implement save versioning and history
-        
+
         log::info!("Fetching cloud saves for {}", app_name);
-        
+
         // In a real implementation:
         // 1. Query Epic's cloud save API
         // 2. Get list of available saves
         // 3. Return save metadata
-        
+
         log::warn!("Cloud save fetching not implemented");
         Ok(Vec::new())
     }
@@ -481,34 +507,43 @@ impl EpicClient {
         // TODO: Handle encrypted saves (decrypt with user keys)
         // TODO: Verify save integrity with checksums
         // TODO: Handle save conflicts (local vs cloud)
-        
+
         log::info!("Downloading cloud save: {}", save_id);
-        
+
         // In a real implementation:
         // 1. Get save download URL
         // 2. Download save data
         // 3. Verify integrity
-        
+
         log::warn!("Cloud save download not implemented");
         Ok(Vec::new())
     }
 
     /// Upload a cloud save file
-    pub async fn upload_cloud_save(&self, _token: &AuthToken, app_name: &str, save_data: &[u8]) -> Result<()> {
+    pub async fn upload_cloud_save(
+        &self,
+        _token: &AuthToken,
+        app_name: &str,
+        save_data: &[u8],
+    ) -> Result<()> {
         // TODO: Implement cloud save upload
         // TODO: Request upload URL from Epic API
         // TODO: Encrypt saves if required by game
         // TODO: Handle upload conflicts with existing saves
         // TODO: Implement save metadata (timestamp, game version)
         // TODO: Add upload progress reporting for large saves
-        
-        log::info!("Uploading cloud save for {} ({} bytes)", app_name, save_data.len());
-        
+
+        log::info!(
+            "Uploading cloud save for {} ({} bytes)",
+            app_name,
+            save_data.len()
+        );
+
         // In a real implementation:
         // 1. Get upload URL from API
         // 2. Upload save data
         // 3. Verify upload success
-        
+
         log::warn!("Cloud save upload not implemented");
         Ok(())
     }

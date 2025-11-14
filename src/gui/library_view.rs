@@ -48,10 +48,16 @@ impl LibraryView {
             ui.add_space(20.0);
 
             // Filters
-            if ui.selectable_label(self.filter == GameFilter::All, "All Games").clicked() {
+            if ui
+                .selectable_label(self.filter == GameFilter::All, "All Games")
+                .clicked()
+            {
                 self.filter = GameFilter::All;
             }
-            if ui.selectable_label(self.filter == GameFilter::Installed, "Installed").clicked() {
+            if ui
+                .selectable_label(self.filter == GameFilter::Installed, "Installed")
+                .clicked()
+            {
                 self.filter = GameFilter::Installed;
             }
         });
@@ -90,9 +96,16 @@ impl LibraryView {
             if games_to_show.is_empty() {
                 ui.vertical_centered(|ui| {
                     ui.add_space(100.0);
-                    ui.label(RichText::new("No games found").size(18.0).color(Color32::GRAY));
+                    ui.label(
+                        RichText::new("No games found")
+                            .size(18.0)
+                            .color(Color32::GRAY),
+                    );
                     if self.search_query.is_empty() {
-                        ui.label(RichText::new("Your library is empty or not yet loaded").color(Color32::GRAY));
+                        ui.label(
+                            RichText::new("Your library is empty or not yet loaded")
+                                .color(Color32::GRAY),
+                        );
                     }
                 });
             } else {
@@ -120,8 +133,11 @@ impl LibraryView {
         installed_games: &[InstalledGame],
     ) -> Option<LibraryAction> {
         let mut action = None;
-        let is_installed = installed_games.iter().any(|ig| ig.app_name == game.app_name);
-        let is_installing = self.installing_games
+        let is_installed = installed_games
+            .iter()
+            .any(|ig| ig.app_name == game.app_name);
+        let is_installing = self
+            .installing_games
             .lock()
             .unwrap()
             .contains(&game.app_name);
@@ -136,16 +152,14 @@ impl LibraryView {
 
                 ui.vertical(|ui| {
                     // Game image placeholder
-                    let (rect, _) = ui.allocate_exact_size(
-                        Vec2::new(230.0, 130.0),
-                        egui::Sense::click(),
-                    );
+                    let (rect, _) =
+                        ui.allocate_exact_size(Vec2::new(230.0, 130.0), egui::Sense::click());
                     ui.painter().rect_filled(
                         rect,
                         egui::Rounding::same(4.0),
                         Color32::from_rgb(50, 50, 55),
                     );
-                    
+
                     // Game title placeholder (centered text on image)
                     ui.painter().text(
                         rect.center(),
@@ -158,11 +172,7 @@ impl LibraryView {
                     ui.add_space(10.0);
 
                     // Game title
-                    ui.label(
-                        RichText::new(&game.app_title)
-                            .size(14.0)
-                            .strong(),
-                    );
+                    ui.label(RichText::new(&game.app_title).size(14.0).strong());
 
                     ui.add_space(5.0);
 
@@ -179,11 +189,12 @@ impl LibraryView {
                             ui.add_enabled_ui(false, |ui| {
                                 let _ = ui.button(RichText::new("Installing...").size(14.0));
                             });
-                        } else {
-                            if ui.button(RichText::new("Install").size(14.0)).clicked() {
-                                self.installing_games.lock().unwrap().push(game.app_name.clone());
-                                action = Some(LibraryAction::Install(game.app_name.clone()));
-                            }
+                        } else if ui.button(RichText::new("Install").size(14.0)).clicked() {
+                            self.installing_games
+                                .lock()
+                                .unwrap()
+                                .push(game.app_name.clone());
+                            action = Some(LibraryAction::Install(game.app_name.clone()));
                         }
                     });
                 });
@@ -193,7 +204,10 @@ impl LibraryView {
     }
 
     pub fn mark_installation_complete(&mut self, app_name: &str) {
-        self.installing_games.lock().unwrap().retain(|name| name != app_name);
+        self.installing_games
+            .lock()
+            .unwrap()
+            .retain(|name| name != app_name);
     }
 }
 
