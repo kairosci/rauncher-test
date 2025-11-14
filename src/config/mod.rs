@@ -5,6 +5,14 @@ use std::path::PathBuf;
 
 use crate::{Error, Result};
 
+// TODO: Add more configuration options:
+// - download_threads: Number of concurrent downloads
+// - bandwidth_limit: Optional download speed limit
+// - cdn_region: Preferred CDN region
+// - auto_update: Auto-update games in background
+// - proxy_settings: HTTP/SOCKS proxy configuration
+// - cache_size: Maximum cache size for manifests/metadata
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub install_dir: PathBuf,
@@ -45,6 +53,11 @@ mod tests {
 
 impl Config {
     pub fn load() -> Result<Self> {
+        // TODO: Implement config validation
+        // TODO: Handle config migration for version changes
+        // TODO: Merge user config with defaults for missing values
+        // TODO: Add config file watching for hot-reload
+        
         let config_path = Self::config_path()?;
 
         if config_path.exists() {
