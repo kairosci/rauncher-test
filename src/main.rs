@@ -22,22 +22,76 @@ async fn main() -> Result<()> {
     // Initialize auth manager
     let mut auth = AuthManager::new()?;
 
+    // Launch GUI by default if no command is specified
     match cli.command {
+        None => {
+            // Launch GUI when no command is provided
+            use r_games_launcher::gui::LauncherApp;
+            
+            let native_options = eframe::NativeOptions {
+                viewport: egui::ViewportBuilder::default()
+                    .with_inner_size([1200.0, 800.0])
+                    .with_min_inner_size([800.0, 600.0])
+                    .with_title("R Games Launcher"),
+                ..Default::default()
+            };
+
+            if let Err(e) = eframe::run_native(
+                "R Games Launcher",
+                native_options,
+                Box::new(|cc| Ok(Box::new(LauncherApp::new(cc)))),
+            ) {
+                eprintln!("Failed to run GUI: {}", e);
+                std::process::exit(1);
+            }
+        }
+        
+        Some(command) => match command {
         Commands::Auth { logout } => {
             if logout {
                 auth.logout()?;
                 println!("Successfully logged out");
             } else {
+                use r_games_launcher::api::EpicClient;
+                
                 println!("Epic Games Store Authentication");
                 println!("================================");
                 println!();
-                println!("Authentication is not yet fully implemented.");
-                println!("This requires setting up OAuth with Epic Games Store.");
-                println!();
-                println!("In the future, this will:");
-                println!("  1. Display a device code and URL");
-                println!("  2. Wait for you to authenticate in your browser");
-                println!("  3. Save your authentication token");
+                
+                let client = EpicClient::new()?;
+                
+                println!("Starting authentication process...");
+                
+                match client.authenticate().await {
+                    Ok((user_code, verification_url, token)) => {
+                        println!();
+                        println!("Please authenticate using your web browser:");
+                        println!();
+                        println!("  1. Open this URL: {}", verification_url);
+                        println!("  2. Enter this code: {}", user_code);
+                        println!();
+                        println!("Waiting for authentication...");
+                        
+                        // Save the token
+                        auth.set_token(token)?;
+                        
+                        println!();
+                        println!("✓ Successfully authenticated with Epic Games Store!");
+                        println!();
+                        println!("You can now:");
+                        println!("  - List your games: r-games-launcher list");
+                        println!("  - Install a game: r-games-launcher install <app_name>");
+                    }
+                    Err(e) => {
+                        eprintln!();
+                        eprintln!("Authentication failed: {}", e);
+                        eprintln!();
+                        eprintln!("Please try again. If the problem persists, check:");
+                        eprintln!("  - Your internet connection");
+                        eprintln!("  - Epic Games services status");
+                        std::process::exit(1);
+                    }
+                }
             }
         }
 
@@ -173,6 +227,73 @@ async fn main() -> Result<()> {
             }
         }
 
+        Commands::Update { app_name, check_only } => {
+            if !auth.is_authenticated() {
+                eprintln!("Error: Not authenticated. Run 'r-games-launcher auth' first.");
+                std::process::exit(1);
+            }
+
+            let manager = GameManager::new(config, auth)?;
+
+            if check_only {
+                println!("Checking for updates for {}...", app_name);
+                match manager.check_for_updates(&app_name).await {
+                    Ok(Some(version)) => {
+                        println!("✓ Update available: version {}", version);
+                    }
+                    Ok(None) => {
+                        println!("✓ Game is up to date");
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to check for updates: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            } else {
+                match manager.update_game(&app_name).await {
+                    Ok(()) => println!("✓ Update complete!"),
+                    Err(e) => {
+                        eprintln!("Failed to update game: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+        }
+
+        Commands::CloudSave { app_name, download, upload } => {
+            if !auth.is_authenticated() {
+                eprintln!("Error: Not authenticated. Run 'r-games-launcher auth' first.");
+                std::process::exit(1);
+            }
+
+            let manager = GameManager::new(config, auth)?;
+
+            if !download && !upload {
+                eprintln!("Error: Specify --download or --upload");
+                std::process::exit(1);
+            }
+
+            if download {
+                match manager.download_cloud_saves(&app_name).await {
+                    Ok(()) => {}
+                    Err(e) => {
+                        eprintln!("Failed to download cloud saves: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+
+            if upload {
+                match manager.upload_cloud_saves(&app_name).await {
+                    Ok(()) => {}
+                    Err(e) => {
+                        eprintln!("Failed to upload cloud saves: {}", e);
+                        std::process::exit(1);
+                    }
+                }
+            }
+        }
+
         Commands::Gui => {
             use r_games_launcher::gui::LauncherApp;
             
@@ -192,6 +313,7 @@ async fn main() -> Result<()> {
                 eprintln!("Failed to run GUI: {}", e);
                 std::process::exit(1);
             }
+        }
         }
     }
 
