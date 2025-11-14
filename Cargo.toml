@@ -30,4 +30,4 @@ poll-promise = "0.3"
 webbrowser = "1.0.6"
 
 [dev-dependencies]
-tempfile = "3.0"
+tempfile = "3.23.0"

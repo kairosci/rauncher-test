@@ -213,7 +213,7 @@ The launcher now includes full implementations for:
 
 ## Inspiration
 
-This project is inspired by [Legendary](https://github.com/derrod/legendary), an excellent Python-based Epic Games launcher. R Games Launcher aims to provide similar functionality with the performance and safety benefits of Rust.
+This project is inspired by [Legendary](https://github.com/derrod/legendary), an excellent Python-based Epic Games launcher. Rauncher aims to provide similar functionality with the performance and safety benefits of Rust.
 
 ## Contributing
 

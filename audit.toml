@@ -1,0 +1,10 @@
+# Configuration for cargo-audit (security audit)
+# This file specifies which advisories to ignore or warn about
+
+[advisories]
+# Ignore unmaintained advisory for paste crate
+# RUSTSEC-2024-0436: paste is unmaintained (archived by author)
+# This is a transitive dependency through rav1e -> ravif -> image
+# No actual security vulnerability, just project archived
+# We'll upgrade when upstream dependencies update
+ignore = ["RUSTSEC-2024-0436"]

@@ -21,8 +21,8 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let project_dirs =
-            ProjectDirs::from("", "", "rauncher").expect("Failed to determine project directories");
+        let project_dirs = ProjectDirs::from("", "", "rauncher")
+            .expect("Failed to determine project directories");
 
         Self {
             install_dir: project_dirs.data_dir().join("games"),
