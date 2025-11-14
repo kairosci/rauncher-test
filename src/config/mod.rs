@@ -36,7 +36,7 @@ impl Config {
         // TODO: Handle config migration for version changes
         // TODO: Merge user config with defaults for missing values
         // TODO: Add config file watching for hot-reload
-        
+
         let config_path = Self::config_path()?;
 
         if config_path.exists() {
@@ -50,7 +50,7 @@ impl Config {
             Ok(config)
         }
     }
-    
+
     /// Validate configuration values
     fn validate(&self) -> Result<()> {
         // Validate log level
@@ -62,7 +62,7 @@ impl Config {
                 valid_log_levels.join(", ")
             )));
         }
-        
+
         // Validate install directory - ensure parent exists or can be created
         if let Some(parent) = self.install_dir.parent() {
             if !parent.exists() {
@@ -72,7 +72,7 @@ impl Config {
                 )));
             }
         }
-        
+
         Ok(())
     }
 

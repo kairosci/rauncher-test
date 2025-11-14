@@ -22,7 +22,7 @@ impl AuthToken {
     pub fn save(&self) -> Result<()> {
         // TODO: Encrypt tokens at rest instead of storing as plain JSON
         // TODO: Use OS keychain/credential manager for secure storage
-        
+
         let auth_path = Self::auth_path()?;
 
         if let Some(parent) = auth_path.parent() {
@@ -31,7 +31,7 @@ impl AuthToken {
 
         let contents = serde_json::to_string_pretty(self)?;
         fs::write(&auth_path, &contents)?;
-        
+
         // Set restrictive file permissions (0600) on Unix systems
         #[cfg(unix)]
         {
@@ -47,7 +47,7 @@ impl AuthToken {
     pub fn load() -> Result<Option<Self>> {
         // TODO: Decrypt tokens if encryption is implemented
         // TODO: Handle migration from old token formats
-        
+
         let auth_path = Self::auth_path()?;
 
         if !auth_path.exists() {
@@ -101,7 +101,7 @@ impl AuthManager {
             _ => Err(Error::NotAuthenticated),
         }
     }
-    
+
     /// Check if token will expire soon (within 5 minutes)
     pub fn token_needs_refresh(&self) -> bool {
         if let Some(token) = &self.token {

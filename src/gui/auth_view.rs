@@ -63,14 +63,19 @@ impl AuthView {
                 self.device_auth_promise = None;
             }
         }
-        
+
         // Handle polling state - extract values first to avoid borrow checker issues
-        let polling_info = if let AuthState::Polling { device_code, last_poll, attempts } = &self.state {
+        let polling_info = if let AuthState::Polling {
+            device_code,
+            last_poll,
+            attempts,
+        } = &self.state
+        {
             Some((device_code.clone(), *last_poll, *attempts))
         } else {
             None
         };
-        
+
         if let Some((device_code, last_poll, attempts)) = polling_info {
             // Check if poll promise is ready
             if let Some(promise) = &self.poll_promise {
@@ -82,7 +87,8 @@ impl AuthView {
                                 self.auth_status = format!("Error saving token: {}", e);
                                 self.state = AuthState::Idle;
                             } else {
-                                self.auth_status = "✓ Successfully authenticated with Epic Games!".to_string();
+                                self.auth_status =
+                                    "✓ Successfully authenticated with Epic Games!".to_string();
                                 self.state = AuthState::Idle;
                                 self.poll_promise = None;
                                 return true; // Signal successful login
@@ -93,7 +99,8 @@ impl AuthView {
                             let new_attempts = attempts + 1;
                             if new_attempts >= 120 {
                                 // Timeout after 10 minutes (120 * 5 seconds)
-                                self.auth_status = "Authentication timed out. Please try again.".to_string();
+                                self.auth_status =
+                                    "Authentication timed out. Please try again.".to_string();
                                 self.state = AuthState::Idle;
                                 self.verification_url = None;
                                 self.user_code = None;
@@ -115,7 +122,7 @@ impl AuthView {
                     self.poll_promise = None;
                 }
             }
-            
+
             // Start new poll if needed
             if self.poll_promise.is_none() && last_poll.elapsed() >= Duration::from_secs(5) {
                 let device_code_clone = device_code.clone();
@@ -130,45 +137,51 @@ impl AuthView {
                 self.poll_promise = Some(promise);
             }
         }
-        
+
         ui.vertical_centered(|ui| {
             ui.add_space(50.0);
-            
+
             ui.heading(RichText::new("Epic Games Store").size(32.0));
             ui.add_space(10.0);
             ui.label(RichText::new("Sign in to your account").size(16.0));
-            
+
             ui.add_space(40.0);
-            
+
             // Center the content
             ui.with_layout(Layout::top_down(Align::Center), |ui| {
                 ui.set_max_width(500.0);
-                
+
                 match &self.state {
                     AuthState::Idle => {
                         // Show login button
-                        if ui.button(RichText::new("Sign In with Epic Games").size(18.0))
-                            .clicked() {
+                        if ui
+                            .button(RichText::new("Sign In with Epic Games").size(18.0))
+                            .clicked()
+                        {
                             self.start_authentication();
                         }
-                        
+
                         ui.add_space(20.0);
-                        
+
                         // Instructions
-                        ui.label(RichText::new("Click the button above to authenticate with Epic Games")
-                            .size(14.0)
-                            .color(egui::Color32::GRAY));
-                        ui.label(RichText::new("You'll receive a code to enter in your browser")
-                            .size(14.0)
-                            .color(egui::Color32::GRAY));
+                        ui.label(
+                            RichText::new("Click the button above to authenticate with Epic Games")
+                                .size(14.0)
+                                .color(egui::Color32::GRAY),
+                        );
+                        ui.label(
+                            RichText::new("You'll receive a code to enter in your browser")
+                                .size(14.0)
+                                .color(egui::Color32::GRAY),
+                        );
                     }
                     AuthState::RequestingDeviceAuth => {
                         ui.spinner();
                         ui.add_space(10.0);
                         ui.label("Initializing authentication...");
-                        
+
                         ui.add_space(20.0);
-                        
+
                         if ui.button("Cancel").clicked() {
                             self.cancel_authentication();
                         }
@@ -177,11 +190,14 @@ impl AuthView {
                         // Show authentication in progress
                         ui.heading(RichText::new("⏳ Authentication in Progress").size(20.0));
                         ui.add_space(20.0);
-                        
+
                         if let (Some(url), Some(code)) = (&self.verification_url, &self.user_code) {
-                            ui.label(RichText::new("Please complete authentication in your browser:").size(16.0));
+                            ui.label(
+                                RichText::new("Please complete authentication in your browser:")
+                                    .size(16.0),
+                            );
                             ui.add_space(15.0);
-                            
+
                             // Display verification URL in a frame
                             egui::Frame::none()
                                 .fill(egui::Color32::from_rgb(40, 40, 50))
@@ -191,43 +207,51 @@ impl AuthView {
                                     ui.horizontal(|ui| {
                                         ui.label(RichText::new("URL:").strong());
                                         ui.add_space(5.0);
-                                        let _ = ui.selectable_label(false, RichText::new(url).monospace());
+                                        let _ = ui.selectable_label(
+                                            false,
+                                            RichText::new(url).monospace(),
+                                        );
                                     });
-                                    
+
                                     ui.add_space(5.0);
-                                    
+
                                     ui.horizontal(|ui| {
                                         ui.label(RichText::new("Code:").strong());
                                         ui.add_space(5.0);
-                                        let _ = ui.selectable_label(false, RichText::new(code).monospace().size(20.0));
+                                        let _ = ui.selectable_label(
+                                            false,
+                                            RichText::new(code).monospace().size(20.0),
+                                        );
                                     });
                                 });
-                            
+
                             ui.add_space(15.0);
-                            
+
                             if ui.button("Open in Browser").clicked() {
                                 let _ = webbrowser::open(url);
                             }
-                            
+
                             ui.add_space(10.0);
-                            ui.label(RichText::new(format!(
+                            ui.label(
+                                RichText::new(format!(
                                 "Waiting for you to complete authentication... (attempt {}/120)",
                                 attempts + 1
                             ))
                                 .size(14.0)
-                                .color(egui::Color32::LIGHT_BLUE));
+                                .color(egui::Color32::LIGHT_BLUE),
+                            );
                         }
-                        
+
                         ui.add_space(20.0);
-                        
+
                         if ui.button("Cancel").clicked() {
                             self.cancel_authentication();
                         }
                     }
                 }
-                
+
                 ui.add_space(20.0);
-                
+
                 // Status message
                 if !self.auth_status.is_empty() {
                     ui.colored_label(
@@ -236,21 +260,21 @@ impl AuthView {
                         } else {
                             egui::Color32::RED
                         },
-                        &self.auth_status
+                        &self.auth_status,
                     );
                 }
             });
         });
-        
+
         false
     }
-    
+
     fn start_authentication(&mut self) {
         self.state = AuthState::RequestingDeviceAuth;
         self.auth_status = String::new();
         self.verification_url = None;
         self.user_code = None;
-        
+
         // Spawn thread to run async device auth request
         let promise = Promise::spawn_thread("device_auth", || {
             tokio::runtime::Runtime::new()
@@ -260,10 +284,10 @@ impl AuthView {
                     client.request_device_auth().await
                 })
         });
-        
+
         self.device_auth_promise = Some(promise);
     }
-    
+
     fn cancel_authentication(&mut self) {
         self.state = AuthState::Idle;
         self.device_auth_promise = None;
