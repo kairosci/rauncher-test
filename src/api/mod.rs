@@ -148,7 +148,7 @@ pub struct EpicClient {
 impl EpicClient {
     pub fn new() -> Result<Self> {
         let client = Client::builder()
-            .user_agent("r-games-launcher/0.1.0")
+            .user_agent("rauncher/0.1.0")
             .timeout(Duration::from_secs(REQUEST_TIMEOUT_SECS))
             .build()?;
 

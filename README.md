@@ -17,8 +17,8 @@ An Epic Games Store launcher for Linux written in Rust, inspired by [Legendary](
 
 ```bash
 # Clone the repository
-git clone https://github.com/kairosci/r-games-launcher.git
-cd r-games-launcher
+git clone https://github.com/kairosci/rauncher.git
+cd rauncher
 
 # Build with cargo
 cargo build --release
@@ -34,7 +34,7 @@ cargo install --path .
 Simply run the launcher to start the GUI:
 
 ```bash
-r-games-launcher
+rauncher
 ```
 
 The GUI provides an Epic Games Store-like experience with:
@@ -53,7 +53,7 @@ For advanced users and automation, CLI commands are still available:
 Authenticate with Epic Games Store using OAuth device flow:
 
 ```bash
-r-games-launcher auth
+rauncher auth
 ```
 
 This will:
@@ -64,7 +64,7 @@ This will:
 Logout:
 
 ```bash
-r-games-launcher auth --logout
+rauncher auth --logout
 ```
 
 ### List Games
@@ -72,13 +72,13 @@ r-games-launcher auth --logout
 List all games in your library:
 
 ```bash
-r-games-launcher list
+rauncher list
 ```
 
 List only installed games:
 
 ```bash
-r-games-launcher list --installed
+rauncher list --installed
 ```
 
 ### Install a Game
@@ -86,7 +86,7 @@ r-games-launcher list --installed
 Install a game from your library:
 
 ```bash
-r-games-launcher install <app_name>
+rauncher install <app_name>
 ```
 
 ### Launch a Game
@@ -94,7 +94,7 @@ r-games-launcher install <app_name>
 Launch an installed game:
 
 ```bash
-r-games-launcher launch <app_name>
+rauncher launch <app_name>
 ```
 
 ### Game Information
@@ -102,7 +102,7 @@ r-games-launcher launch <app_name>
 Show information about a game:
 
 ```bash
-r-games-launcher info <app_name>
+rauncher info <app_name>
 ```
 
 ### Uninstall a Game
@@ -110,7 +110,7 @@ r-games-launcher info <app_name>
 Remove a game:
 
 ```bash
-r-games-launcher uninstall <app_name>
+rauncher uninstall <app_name>
 ```
 
 ### Update a Game
@@ -119,10 +119,10 @@ Check for and install game updates:
 
 ```bash
 # Check if updates are available
-r-games-launcher update <app_name> --check-only
+rauncher update <app_name> --check-only
 
 # Update a game
-r-games-launcher update <app_name>
+rauncher update <app_name>
 ```
 
 ### Cloud Saves
@@ -131,10 +131,10 @@ Manage cloud saves for your games:
 
 ```bash
 # Download cloud saves
-r-games-launcher cloud-save <app_name> --download
+rauncher cloud-save <app_name> --download
 
 # Upload local saves to cloud
-r-games-launcher cloud-save <app_name> --upload
+rauncher cloud-save <app_name> --upload
 ```
 
 ### Status
@@ -142,7 +142,7 @@ r-games-launcher cloud-save <app_name> --upload
 Check the launcher status and configuration:
 
 ```bash
-r-games-launcher status
+rauncher status
 ```
 
 ### Options
@@ -150,7 +150,7 @@ r-games-launcher status
 Enable verbose logging for any command:
 
 ```bash
-r-games-launcher --verbose <command>
+rauncher --verbose <command>
 ```
 
 ## Architecture
@@ -167,17 +167,17 @@ The launcher is built with a modular architecture:
 ## Configuration
 
 Configuration is stored in:
-- **Linux**: `~/.config/r-games-launcher/config.toml`
+- **Linux**: `~/.config/rauncher/config.toml`
 
 Default configuration:
 
 ```toml
-install_dir = "~/.local/share/r-games-launcher/games"
+install_dir = "~/.local/share/rauncher/games"
 log_level = "info"
 ```
 
 Authentication tokens are stored securely in:
-- **Linux**: `~/.local/share/r-games-launcher/auth.json`
+- **Linux**: `~/.local/share/rauncher/auth.json`
 
 ## Development Status
 

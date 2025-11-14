@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "r-games-launcher")]
+#[command(name = "rauncher")]
 #[command(author, version, about = "Epic Games launcher for Linux written in Rust - GUI-first application", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]

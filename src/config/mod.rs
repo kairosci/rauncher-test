@@ -21,8 +21,8 @@ pub struct Config {
 
 impl Default for Config {
     fn default() -> Self {
-        let project_dirs = ProjectDirs::from("", "", "r-games-launcher")
-            .expect("Failed to determine project directories");
+        let project_dirs =
+            ProjectDirs::from("", "", "rauncher").expect("Failed to determine project directories");
 
         Self {
             install_dir: project_dirs.data_dir().join("games"),
@@ -90,14 +90,14 @@ impl Config {
     }
 
     pub fn config_path() -> Result<PathBuf> {
-        let project_dirs = ProjectDirs::from("", "", "r-games-launcher")
+        let project_dirs = ProjectDirs::from("", "", "rauncher")
             .ok_or_else(|| Error::Config("Failed to determine project directories".to_string()))?;
 
         Ok(project_dirs.config_dir().join("config.toml"))
     }
 
     pub fn data_dir() -> Result<PathBuf> {
-        let project_dirs = ProjectDirs::from("", "", "r-games-launcher")
+        let project_dirs = ProjectDirs::from("", "", "rauncher")
             .ok_or_else(|| Error::Config("Failed to determine project directories".to_string()))?;
 
         Ok(project_dirs.data_dir().to_path_buf())

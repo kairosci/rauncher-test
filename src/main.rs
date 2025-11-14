@@ -1,5 +1,5 @@
 use clap::Parser;
-use r_games_launcher::{
+use rauncher::{
     auth::AuthManager,
     cli::{Cli, Commands},
     config::Config,
@@ -26,7 +26,7 @@ async fn main() -> Result<()> {
     match cli.command {
         None => {
             // Launch GUI when no command is provided
-            use r_games_launcher::gui::LauncherApp;
+            use rauncher::gui::LauncherApp;
 
             let native_options = eframe::NativeOptions {
                 viewport: egui::ViewportBuilder::default()
@@ -52,7 +52,7 @@ async fn main() -> Result<()> {
                     auth.logout()?;
                     println!("Successfully logged out");
                 } else {
-                    use r_games_launcher::api::EpicClient;
+                    use rauncher::api::EpicClient;
 
                     println!("Epic Games Store Authentication");
                     println!("================================");
@@ -79,8 +79,8 @@ async fn main() -> Result<()> {
                             println!("✓ Successfully authenticated with Epic Games Store!");
                             println!();
                             println!("You can now:");
-                            println!("  - List your games: r-games-launcher list");
-                            println!("  - Install a game: r-games-launcher install <app_name>");
+                            println!("  - List your games: rauncher list");
+                            println!("  - Install a game: rauncher install <app_name>");
                         }
                         Err(e) => {
                             eprintln!();
@@ -115,7 +115,7 @@ async fn main() -> Result<()> {
                     }
                 } else {
                     if !auth.is_authenticated() {
-                        eprintln!("Error: Not authenticated. Run 'r-games-launcher auth' first.");
+                        eprintln!("Error: Not authenticated. Run 'rauncher auth' first.");
                         std::process::exit(1);
                     }
 
@@ -139,7 +139,7 @@ async fn main() -> Result<()> {
 
             Commands::Install { app_name } => {
                 if !auth.is_authenticated() {
-                    eprintln!("Error: Not authenticated. Run 'r-games-launcher auth' first.");
+                    eprintln!("Error: Not authenticated. Run 'rauncher auth' first.");
                     std::process::exit(1);
                 }
 
@@ -232,7 +232,7 @@ async fn main() -> Result<()> {
                 check_only,
             } => {
                 if !auth.is_authenticated() {
-                    eprintln!("Error: Not authenticated. Run 'r-games-launcher auth' first.");
+                    eprintln!("Error: Not authenticated. Run 'rauncher auth' first.");
                     std::process::exit(1);
                 }
 
@@ -269,7 +269,7 @@ async fn main() -> Result<()> {
                 upload,
             } => {
                 if !auth.is_authenticated() {
-                    eprintln!("Error: Not authenticated. Run 'r-games-launcher auth' first.");
+                    eprintln!("Error: Not authenticated. Run 'rauncher auth' first.");
                     std::process::exit(1);
                 }
 
@@ -302,7 +302,7 @@ async fn main() -> Result<()> {
             }
 
             Commands::Gui => {
-                use r_games_launcher::gui::LauncherApp;
+                use rauncher::gui::LauncherApp;
 
                 let native_options = eframe::NativeOptions {
                     viewport: egui::ViewportBuilder::default()
