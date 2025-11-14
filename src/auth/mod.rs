@@ -86,6 +86,10 @@ impl AuthManager {
         }
     }
 
+    pub fn get_refresh_token(&self) -> Option<String> {
+        self.token.as_ref().map(|t| t.refresh_token.clone())
+    }
+
     pub fn set_token(&mut self, token: AuthToken) -> Result<()> {
         token.save()?;
         self.token = Some(token);

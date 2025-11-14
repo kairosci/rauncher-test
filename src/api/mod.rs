@@ -191,9 +191,13 @@ impl EpicClient {
 
     /// Refresh an expired access token
     pub async fn refresh_token(&self, refresh_token: &str) -> Result<AuthToken> {
+        log::info!("Refreshing access token");
+        
         let response = self
             .client
             .post(OAUTH_TOKEN_URL)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .basic_auth(CLIENT_ID, Some(CLIENT_SECRET))
             .form(&[
                 ("grant_type", "refresh_token"),
                 ("refresh_token", refresh_token),
@@ -202,13 +206,17 @@ impl EpicClient {
             .await?;
 
         if !response.status().is_success() {
+            let status = response.status();
+            let error_text = response.text().await.unwrap_or_default();
             return Err(Error::Auth(format!(
-                "Failed to refresh token: {}",
-                response.status()
+                "Failed to refresh token: {} - {}",
+                status, error_text
             )));
         }
 
         let oauth_response: OAuthTokenResponse = response.json().await?;
+        
+        log::info!("Successfully refreshed access token");
 
         Ok(AuthToken {
             access_token: oauth_response.access_token,
@@ -336,5 +344,34 @@ mod tests {
         let serialized = serde_json::to_string(&game).unwrap();
         let deserialized: Game = serde_json::from_str(&serialized).unwrap();
         assert_eq!(game.app_name, deserialized.app_name);
+    }
+
+    #[test]
+    fn test_oauth_token_response_deserialization() {
+        let json = r#"{
+            "access_token": "test_access",
+            "refresh_token": "test_refresh",
+            "expires_in": 3600,
+            "account_id": "test_account"
+        }"#;
+        let response: OAuthTokenResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(response.access_token, "test_access");
+        assert_eq!(response.expires_in, 3600);
+    }
+
+    #[test]
+    fn test_library_response_deserialization() {
+        let json = r#"{
+            "records": [
+                {
+                    "appName": "Fortnite",
+                    "namespace": "fn",
+                    "catalogItemId": "4fe75bbc5a674f4f9b356b5c90567da5"
+                }
+            ]
+        }"#;
+        let response: LibraryResponse = serde_json::from_str(json).unwrap();
+        assert_eq!(response.records.len(), 1);
+        assert_eq!(response.records[0].app_name, "Fortnite");
     }
 }

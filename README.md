@@ -30,11 +30,16 @@ cargo install --path .
 
 ### Authentication
 
-Authenticate with Epic Games Store (currently in development):
+Authenticate with Epic Games Store using OAuth device flow:
 
 ```bash
 r-games-launcher auth
 ```
+
+This will:
+1. Display a verification URL and device code
+2. Wait for you to authenticate in your browser
+3. Save your authentication token securely
 
 Logout:
 
@@ -132,19 +137,26 @@ Authentication tokens are stored securely in:
 
 ## Development Status
 
-This project is currently in early development. The following features are planned or in progress:
+This project is currently in active development. The following features are implemented or in progress:
 
 - [x] Project structure and core modules
 - [x] CLI interface
 - [x] Configuration management
 - [x] Authentication framework
-- [ ] Epic Games OAuth integration
-- [ ] Game library fetching
-- [ ] Game manifest parsing
-- [ ] Game download and installation
-- [ ] Game launching
+- [x] Epic Games OAuth device code flow integration
+- [x] Game library fetching from Epic Games API
+- [x] Game manifest ID retrieval
+- [x] Game launching (for installed games)
+- [x] Token refresh mechanism
+- [ ] Complete game manifest parsing from CDN
+- [ ] Game file download with progress tracking
+- [ ] Complete game installation from downloaded files
 - [ ] Update management
 - [ ] Cloud saves support
+
+### Current Limitations
+
+The launcher can now authenticate with Epic Games and fetch your game library. However, the actual game file download and installation is not yet complete. The installation command creates placeholder records for testing the game management system.
 
 ## Inspiration
 
