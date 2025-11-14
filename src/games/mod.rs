@@ -1,3 +1,26 @@
+//! Game management module for installation, updates, and cloud saves
+//!
+//! # Implementation Status
+//!
+//! ## Fully Implemented:
+//! - Game library listing
+//! - Installed game tracking
+//! - Disk space checking before installation
+//! - Progress tracking with speed and ETA calculation
+//! - File integrity verification (SHA256)
+//! - Cloud save conflict detection and backup
+//! - Differential update framework
+//! - Update version checking
+//!
+//! ## Framework in Place:
+//! - File reconstruction from chunks (needs CDN integration)
+//! - Parallel downloads (needs CDN integration)
+//! - Resume capability (needs progress persistence)
+//! - Automatic cloud save sync (needs trigger points)
+//!
+//! The remaining TODOs are implementation details that depend on Epic CDN
+//! integration or require user interaction (e.g., conflict resolution prompts).
+
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};

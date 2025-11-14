@@ -1,3 +1,23 @@
+//! Epic Games Store API client implementation
+//!
+//! # Implementation Status
+//!
+//! ## Fully Implemented:
+//! - OAuth device authorization flow
+//! - Token management and refresh
+//! - Game library retrieval
+//! - Manifest caching with TTL
+//! - Retry logic with exponential backoff
+//! - Progress tracking structures
+//!
+//! ## Framework in Place (Requires Epic CDN Integration):
+//! - CDN manifest download (needs Epic CDN URLs)
+//! - Chunk downloading (needs Epic CDN endpoints)
+//! - Cloud save API (needs Epic cloud save endpoints)
+//!
+//! The remaining TODOs are placeholders for Epic Games-specific CDN integration
+//! that requires access to Epic's CDN infrastructure and API documentation.
+
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
