@@ -1,8 +1,10 @@
 use egui::{Color32, Rounding, Stroke, Style, Visuals};
 
 pub fn setup_custom_style(ctx: &egui::Context) {
-    let mut style = Style::default();
-    style.visuals = Visuals::dark();
+    let mut style = Style {
+        visuals: Visuals::dark(),
+        ..Default::default()
+    };
     
     // Epic Games-inspired dark theme
     style.visuals.window_fill = Color32::from_rgb(18, 18, 18);

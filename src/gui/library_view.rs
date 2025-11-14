@@ -179,11 +179,9 @@ impl LibraryView {
                             ui.add_enabled_ui(false, |ui| {
                                 let _ = ui.button(RichText::new("Installing...").size(14.0));
                             });
-                        } else {
-                            if ui.button(RichText::new("Install").size(14.0)).clicked() {
-                                self.installing_games.lock().unwrap().push(game.app_name.clone());
-                                action = Some(LibraryAction::Install(game.app_name.clone()));
-                            }
+                        } else if ui.button(RichText::new("Install").size(14.0)).clicked() {
+                            self.installing_games.lock().unwrap().push(game.app_name.clone());
+                            action = Some(LibraryAction::Install(game.app_name.clone()));
                         }
                     });
                 });

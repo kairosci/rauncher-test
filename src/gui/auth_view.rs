@@ -2,22 +2,12 @@ use egui::{Align, Layout, RichText};
 
 use crate::auth::AuthManager;
 
+#[derive(Default)]
 pub struct AuthView {
     email_input: String,
     password_input: String,
     auth_status: String,
     is_loading: bool,
-}
-
-impl Default for AuthView {
-    fn default() -> Self {
-        Self {
-            email_input: String::new(),
-            password_input: String::new(),
-            auth_status: String::new(),
-            is_loading: false,
-        }
-    }
 }
 
 impl AuthView {

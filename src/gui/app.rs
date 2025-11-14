@@ -261,18 +261,15 @@ impl eframe::App for LauncherApp {
             ui.horizontal(|ui| {
                 ui.heading("R Games Launcher");
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    match self.state {
-                        AppState::Library => {
-                            if ui.button("Logout").clicked() {
-                                if let Ok(mut auth) = self.auth.lock() {
-                                    let _ = auth.logout();
-                                }
-                                self.state = AppState::Login;
-                                self.library_games.clear();
-                                self.installed_games.clear();
+                    if let AppState::Library = self.state {
+                        if ui.button("Logout").clicked() {
+                            if let Ok(mut auth) = self.auth.lock() {
+                                let _ = auth.logout();
                             }
+                            self.state = AppState::Login;
+                            self.library_games.clear();
+                            self.installed_games.clear();
                         }
-                        _ => {}
                     }
                 });
             });
@@ -281,7 +278,7 @@ impl eframe::App for LauncherApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             match self.state {
                 AppState::Login => {
-                    if self.auth_view.ui(ui, &mut *self.auth.lock().unwrap()) {
+                    if self.auth_view.ui(ui, &mut self.auth.lock().unwrap()) {
                         self.handle_login();
                     }
                 }
