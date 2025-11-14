@@ -1,4 +1,4 @@
-# R Games Launcher
+# Rauncher
 
 An Epic Games Store launcher for Linux written in Rust, inspired by [Legendary](https://github.com/derrod/legendary).
 
