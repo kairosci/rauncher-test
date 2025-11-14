@@ -46,9 +46,7 @@ impl AuthToken {
 
     pub fn load() -> Result<Option<Self>> {
         // TODO: Decrypt tokens if encryption is implemented
-        // TODO: Validate token integrity (checksum/signature)
         // TODO: Handle migration from old token formats
-        // TODO: Add error recovery for corrupted token files
         
         let auth_path = Self::auth_path()?;
 
