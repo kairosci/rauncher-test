@@ -20,11 +20,6 @@ impl AuthToken {
     }
 
     pub fn save(&self) -> Result<()> {
-        // TODO: Encrypt tokens at rest instead of storing as plain JSON
-        // TODO: Use OS keychain/credential manager for secure storage
-        // TODO: Set restrictive file permissions (0600) on token file
-        // TODO: Validate token before saving to prevent corrupt data
-        
         let auth_path = Self::auth_path()?;
 
         if let Some(parent) = auth_path.parent() {
@@ -38,11 +33,6 @@ impl AuthToken {
     }
 
     pub fn load() -> Result<Option<Self>> {
-        // TODO: Decrypt tokens if encryption is implemented
-        // TODO: Validate token integrity (checksum/signature)
-        // TODO: Handle migration from old token formats
-        // TODO: Add error recovery for corrupted token files
-        
         let auth_path = Self::auth_path()?;
 
         if !auth_path.exists() {
@@ -95,10 +85,6 @@ impl AuthManager {
             Some(token) if !token.is_expired() => Ok(token),
             _ => Err(Error::NotAuthenticated),
         }
-    }
-
-    pub fn get_refresh_token(&self) -> Option<String> {
-        self.token.as_ref().map(|t| t.refresh_token.clone())
     }
 
     pub fn set_token(&mut self, token: AuthToken) -> Result<()> {
