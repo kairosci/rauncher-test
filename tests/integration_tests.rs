@@ -8,11 +8,10 @@ fn test_config_creation_and_loading() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("config.toml");
     
-    // Create a config
-    let config = Config {
-        install_dir: temp_dir.path().join("games"),
-        log_level: "info".to_string(),
-    };
+    // Create a config using defaults
+    let mut config = Config::default();
+    config.install_dir = temp_dir.path().join("games");
+    config.log_level = "info".to_string();
     
     // Save it
     let config_str = toml::to_string(&config).unwrap();
@@ -37,10 +36,9 @@ fn test_auth_manager_initialization() {
 #[test]
 fn test_game_manager_creation() {
     let temp_dir = TempDir::new().unwrap();
-    let config = Config {
-        install_dir: temp_dir.path().join("games"),
-        log_level: "info".to_string(),
-    };
+    let mut config = Config::default();
+    config.install_dir = temp_dir.path().join("games");
+    config.log_level = "info".to_string();
     
     let auth = AuthManager::new().unwrap();
     let manager = GameManager::new(config, auth);
@@ -52,10 +50,9 @@ fn test_game_manager_creation() {
 #[test]
 fn test_list_installed_games_empty() {
     let temp_dir = TempDir::new().unwrap();
-    let config = Config {
-        install_dir: temp_dir.path().join("games"),
-        log_level: "info".to_string(),
-    };
+    let mut config = Config::default();
+    config.install_dir = temp_dir.path().join("games");
+    config.log_level = "info".to_string();
     
     let auth = AuthManager::new().unwrap();
     let manager = GameManager::new(config, auth).unwrap();
@@ -85,10 +82,9 @@ fn test_install_directory_setup() {
 #[test]
 fn test_invalid_install_path_handling() {
     let temp_dir = TempDir::new().unwrap();
-    let config = Config {
-        install_dir: temp_dir.path().join("games"),
-        log_level: "info".to_string(),
-    };
+    let mut config = Config::default();
+    config.install_dir = temp_dir.path().join("games");
+    config.log_level = "info".to_string();
     
     let auth = AuthManager::new().unwrap();
     let manager = GameManager::new(config, auth).unwrap();

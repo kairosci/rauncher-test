@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
+use base64::{Engine as _, engine::general_purpose};
+use sha2::{Sha256, Digest};
 
 use crate::config::Config;
 use crate::{Error, Result};
@@ -20,17 +22,22 @@ impl AuthToken {
     }
 
     pub fn save(&self) -> Result<()> {
-        // TODO: Encrypt tokens at rest instead of storing as plain JSON
-        // TODO: Use OS keychain/credential manager for secure storage
-
         let auth_path = Self::auth_path()?;
 
         if let Some(parent) = auth_path.parent() {
             fs::create_dir_all(parent)?;
         }
 
-        let contents = serde_json::to_string_pretty(self)?;
-        fs::write(&auth_path, &contents)?;
+        // Serialize token to JSON
+        let json_data = serde_json::to_string(self)?;
+        
+        // Encrypt the token data using simple XOR encryption with system-derived key
+        // Note: For production use, consider OS keychain/credential manager
+        let encrypted_data = Self::encrypt_data(json_data.as_bytes())?;
+        
+        // Encode as base64 for storage
+        let encoded = general_purpose::STANDARD.encode(&encrypted_data);
+        fs::write(&auth_path, encoded)?;
 
         // Set restrictive file permissions (0600) on Unix systems
         #[cfg(unix)]
@@ -45,9 +52,6 @@ impl AuthToken {
     }
 
     pub fn load() -> Result<Option<Self>> {
-        // TODO: Decrypt tokens if encryption is implemented
-        // TODO: Handle migration from old token formats
-
         let auth_path = Self::auth_path()?;
 
         if !auth_path.exists() {
@@ -55,9 +59,45 @@ impl AuthToken {
         }
 
         let contents = fs::read_to_string(&auth_path)?;
-        let token: AuthToken = serde_json::from_str(&contents)?;
-
-        Ok(Some(token))
+        
+        // Try to load as encrypted data first (new format)
+        match Self::load_encrypted(&contents) {
+            Ok(token) => Ok(Some(token)),
+            Err(_) => {
+                // Fall back to trying plain JSON (old format for migration)
+                log::info!("Attempting to migrate from old token format");
+                match serde_json::from_str::<AuthToken>(&contents) {
+                    Ok(token) => {
+                        // Successfully loaded old format, re-save in encrypted format
+                        log::info!("Migrating token to encrypted format");
+                        token.save()?;
+                        Ok(Some(token))
+                    }
+                    Err(e) => {
+                        log::error!("Failed to load token in any format: {}", e);
+                        Err(Error::Auth("Failed to load authentication token".to_string()))
+                    }
+                }
+            }
+        }
+    }
+    
+    fn load_encrypted(encoded: &str) -> Result<Self> {
+        // Decode from base64
+        let encrypted_data = general_purpose::STANDARD
+            .decode(encoded.trim())
+            .map_err(|e| Error::Auth(format!("Failed to decode token: {}", e)))?;
+        
+        // Decrypt the data
+        let decrypted_data = Self::decrypt_data(&encrypted_data)?;
+        
+        // Parse JSON
+        let json_str = String::from_utf8(decrypted_data)
+            .map_err(|e| Error::Auth(format!("Invalid token data: {}", e)))?;
+        let token: AuthToken = serde_json::from_str(&json_str)
+            .map_err(|e| Error::Auth(format!("Failed to parse token: {}", e)))?;
+        
+        Ok(token)
     }
 
     pub fn delete() -> Result<()> {
@@ -73,6 +113,56 @@ impl AuthToken {
     fn auth_path() -> Result<PathBuf> {
         let data_dir = Config::data_dir()?;
         Ok(data_dir.join("auth.json"))
+    }
+    
+    /// Get encryption key derived from system information
+    /// Note: This is a basic implementation. For production use, consider:
+    /// - OS keychain/credential manager (keyring crate)
+    /// - Hardware-backed key storage
+    /// - User password-derived keys (with proper KDF)
+    fn get_encryption_key() -> Result<Vec<u8>> {
+        // Derive a key from system-specific information
+        // This provides obfuscation rather than strong encryption
+        let mut hasher = Sha256::new();
+        
+        // Add system-specific entropy
+        #[cfg(target_os = "linux")]
+        {
+            // Use machine-id on Linux if available
+            if let Ok(machine_id) = fs::read_to_string("/etc/machine-id") {
+                hasher.update(machine_id.trim().as_bytes());
+            } else if let Ok(machine_id) = fs::read_to_string("/var/lib/dbus/machine-id") {
+                hasher.update(machine_id.trim().as_bytes());
+            }
+        }
+        
+        // Add application-specific constant
+        hasher.update(b"r-games-launcher-auth-key-v1");
+        
+        // Add username for per-user encryption
+        if let Ok(username) = std::env::var("USER") {
+            hasher.update(username.as_bytes());
+        }
+        
+        Ok(hasher.finalize().to_vec())
+    }
+    
+    /// Encrypt data using XOR cipher with derived key
+    fn encrypt_data(data: &[u8]) -> Result<Vec<u8>> {
+        let key = Self::get_encryption_key()?;
+        let mut encrypted = Vec::with_capacity(data.len());
+        
+        for (i, byte) in data.iter().enumerate() {
+            encrypted.push(byte ^ key[i % key.len()]);
+        }
+        
+        Ok(encrypted)
+    }
+    
+    /// Decrypt data using XOR cipher with derived key
+    fn decrypt_data(data: &[u8]) -> Result<Vec<u8>> {
+        // XOR is symmetric, so decrypt is the same as encrypt
+        Self::encrypt_data(data)
     }
 }
 
