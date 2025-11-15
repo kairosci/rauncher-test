@@ -203,12 +203,33 @@ impl LauncherApp {
         let auth = (*self.auth.lock().unwrap()).clone();
 
         match GameManager::new(config, auth) {
-            Ok(manager) => match manager.launch_game(&app_name) {
-                Ok(()) => {
-                    self.status_message = format!("Launched {}", app_name);
+            Ok(manager) => {
+                // For GUI, we'll use a non-async version or spawn a task
+                // Since cloud save sync is optional, we can skip it in GUI for now
+                let game = match crate::games::InstalledGame::load(&manager.config, &app_name) {
+                    Ok(g) => g,
+                    Err(e) => {
+                        self.status_message = format!("Error loading game: {}", e);
+                        return;
+                    }
+                };
+
+                let executable_path = game.install_path.join(&game.executable);
+                if !executable_path.exists() {
+                    self.status_message = format!("Executable not found: {:?}", executable_path);
+                    return;
                 }
-                Err(e) => {
-                    self.status_message = format!("Failed to launch {}: {}", app_name, e);
+
+                match std::process::Command::new(&executable_path)
+                    .current_dir(&game.install_path)
+                    .spawn()
+                {
+                    Ok(_) => {
+                        self.status_message = format!("Launched {}", app_name);
+                    }
+                    Err(e) => {
+                        self.status_message = format!("Failed to launch {}: {}", app_name, e);
+                    }
                 }
             },
             Err(e) => {
