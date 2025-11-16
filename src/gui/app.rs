@@ -231,7 +231,7 @@ impl LauncherApp {
                         self.status_message = format!("Failed to launch {}: {}", app_name, e);
                     }
                 }
-            },
+            }
             Err(e) => {
                 self.status_message = format!("Error: {}", e);
             }

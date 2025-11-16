@@ -16,7 +16,6 @@ enum AuthState {
     },
 }
 
-#[derive(Default)]
 pub struct AuthView {
     auth_status: String,
     state: AuthState,

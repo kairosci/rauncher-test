@@ -17,13 +17,13 @@
 //! This is a complete, production-ready implementation with proper error handling,
 //! retry logic, caching, and support for Epic Games manifest formats.
 
+use flate2::read::GzDecoder;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::io::Read;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
-use std::io::Read;
-use flate2::read::GzDecoder;
 
 use crate::auth::AuthToken;
 use crate::{Error, Result};
@@ -214,7 +214,7 @@ impl EpicClient {
             manifest_cache: Arc::new(Mutex::new(HashMap::new())),
         })
     }
-    
+
     /// Execute a request with exponential backoff retry logic
     async fn retry_request<F, T, Fut>(&self, operation: F) -> Result<T>
     where
@@ -482,7 +482,7 @@ impl EpicClient {
         let asset = self.get_asset_info(token, app_name).await?;
         Ok(asset.id)
     }
-    
+
     /// Check if data is gzip compressed
     fn is_gzipped(&self, data: &[u8]) -> bool {
         data.len() >= 2 && data[0] == 0x1f && data[1] == 0x8b
@@ -511,7 +511,7 @@ impl EpicClient {
 
         // Get asset information with manifest metadata
         let asset = self.get_asset_info(token, app_name).await?;
-        
+
         // Construct manifest URL from asset metadata
         let manifest_url = if let Some(manifest_location) = &asset.metadata.manifest_location {
             manifest_location.clone()
@@ -523,44 +523,51 @@ impl EpicClient {
         log::info!("Downloading manifest from: {}", manifest_url);
 
         // Download manifest with retry logic
-        let manifest = self.retry_request(|| async {
-            let response = self.client
-                .get(&manifest_url)
-                .header("Authorization", format!("Bearer {}", token.access_token))
-                .send()
-                .await
-                .map_err(|e| Error::Http(e))?;
+        let manifest = self
+            .retry_request(|| async {
+                let response = self
+                    .client
+                    .get(&manifest_url)
+                    .header("Authorization", format!("Bearer {}", token.access_token))
+                    .send()
+                    .await
+                    .map_err(Error::Http)?;
 
-            if !response.status().is_success() {
-                return Err(Error::Api(format!(
-                    "Failed to download manifest: HTTP {}",
-                    response.status()
-                )));
-            }
+                if !response.status().is_success() {
+                    return Err(Error::Api(format!(
+                        "Failed to download manifest: HTTP {}",
+                        response.status()
+                    )));
+                }
 
-            let bytes = response.bytes().await.map_err(|e| Error::Http(e))?;
-            
-            // Try to parse as gzipped data first
-            let json_data = if self.is_gzipped(&bytes) {
-                log::debug!("Decompressing gzipped manifest");
-                let mut decoder = GzDecoder::new(&bytes[..]);
-                let mut decompressed = Vec::new();
-                decoder.read_to_end(&mut decompressed)
-                    .map_err(|e| Error::Other(format!("Failed to decompress manifest: {}", e)))?;
-                decompressed
-            } else {
-                bytes.to_vec()
-            };
+                let bytes = response.bytes().await.map_err(Error::Http)?;
 
-            // Parse manifest JSON
-            let manifest: GameManifest = serde_json::from_slice(&json_data)
-                .map_err(|e| Error::Json(e))?;
+                // Try to parse as gzipped data first
+                let json_data = if self.is_gzipped(&bytes) {
+                    log::debug!("Decompressing gzipped manifest");
+                    let mut decoder = GzDecoder::new(&bytes[..]);
+                    let mut decompressed = Vec::new();
+                    decoder.read_to_end(&mut decompressed).map_err(|e| {
+                        Error::Other(format!("Failed to decompress manifest: {}", e))
+                    })?;
+                    decompressed
+                } else {
+                    bytes.to_vec()
+                };
 
-            log::info!("Successfully parsed manifest for {} v{}", 
-                manifest.app_name, manifest.app_version);
+                // Parse manifest JSON
+                let manifest: GameManifest =
+                    serde_json::from_slice(&json_data).map_err(Error::Json)?;
 
-            Ok(manifest)
-        }).await?;
+                log::info!(
+                    "Successfully parsed manifest for {} v{}",
+                    manifest.app_name,
+                    manifest.app_version
+                );
+
+                Ok(manifest)
+            })
+            .await?;
 
         // Cache the manifest
         {
@@ -577,7 +584,7 @@ impl EpicClient {
 
         Ok(manifest)
     }
-    
+
     /// Clear the manifest cache
     pub fn clear_manifest_cache(&self) {
         let mut cache = self.manifest_cache.lock().unwrap();
@@ -587,10 +594,10 @@ impl EpicClient {
 
     /// Download a game chunk with retry logic
     pub async fn download_chunk(
-        &self, 
-        chunk_guid: &str, 
+        &self,
+        chunk_guid: &str,
         _token: &AuthToken,
-        cdn_base: Option<&str>
+        cdn_base: Option<&str>,
     ) -> Result<Vec<u8>> {
         log::debug!("Downloading chunk: {}", chunk_guid);
 
@@ -598,11 +605,12 @@ impl EpicClient {
         self.retry_request(|| async {
             // Construct CDN URL for the chunk
             let base_url = cdn_base.unwrap_or(CDN_BASE_URL);
-            
+
             // Epic chunks are typically stored in a hierarchical structure
             // Format: {base_url}/ChunksV3/{first2}/{next2}/{chunk_guid}.chunk
             let chunk_path = if chunk_guid.len() >= 4 {
-                format!("{}/ChunksV3/{}/{}/{}.chunk",
+                format!(
+                    "{}/ChunksV3/{}/{}/{}.chunk",
                     base_url,
                     &chunk_guid[0..2],
                     &chunk_guid[2..4],
@@ -615,11 +623,12 @@ impl EpicClient {
             log::debug!("Downloading chunk from: {}", chunk_path);
 
             // Download the chunk data
-            let response = self.client
+            let response = self
+                .client
                 .get(&chunk_path)
                 .send()
                 .await
-                .map_err(|e| Error::Http(e))?;
+                .map_err(Error::Http)?;
 
             if !response.status().is_success() {
                 return Err(Error::Api(format!(
@@ -629,22 +638,24 @@ impl EpicClient {
                 )));
             }
 
-            let mut chunk_data = response.bytes().await
-                .map_err(|e| Error::Http(e))?
-                .to_vec();
+            let mut chunk_data = response.bytes().await.map_err(Error::Http)?.to_vec();
 
             // Handle chunk decompression if needed
             if self.is_gzipped(&chunk_data) {
                 log::debug!("Decompressing chunk {}", chunk_guid);
                 let mut decoder = GzDecoder::new(&chunk_data[..]);
                 let mut decompressed = Vec::new();
-                decoder.read_to_end(&mut decompressed)
+                decoder
+                    .read_to_end(&mut decompressed)
                     .map_err(|e| Error::Other(format!("Failed to decompress chunk: {}", e)))?;
                 chunk_data = decompressed;
             }
 
-            log::debug!("Successfully downloaded chunk {} ({} bytes)", 
-                chunk_guid, chunk_data.len());
+            log::debug!(
+                "Successfully downloaded chunk {} ({} bytes)",
+                chunk_guid,
+                chunk_data.len()
+            );
 
             Ok(chunk_data)
         })
@@ -690,7 +701,8 @@ impl EpicClient {
             app_name
         );
 
-        let response = self.client
+        let response = self
+            .client
             .get(&cloud_save_url)
             .header("Authorization", format!("Bearer {}", token.access_token))
             .send()
@@ -699,9 +711,8 @@ impl EpicClient {
         match response {
             Ok(resp) if resp.status().is_success() => {
                 // Parse cloud save metadata
-                let saves: Vec<CloudSaveMetadata> = resp.json().await
-                    .unwrap_or_default();
-                
+                let saves: Vec<CloudSaveMetadata> = resp.json().await.unwrap_or_default();
+
                 let cloud_saves: Vec<CloudSave> = saves
                     .into_iter()
                     .map(|s| CloudSave {
@@ -732,10 +743,10 @@ impl EpicClient {
 
     /// Download a cloud save file
     pub async fn download_cloud_save(
-        &self, 
-        token: &AuthToken, 
+        &self,
+        token: &AuthToken,
         app_name: &str,
-        save_id: &str
+        save_id: &str,
     ) -> Result<Vec<u8>> {
         log::info!("Downloading cloud save: {} for {}", save_id, app_name);
 
@@ -747,12 +758,13 @@ impl EpicClient {
 
         // Download save data with retry logic
         self.retry_request(|| async {
-            let response = self.client
+            let response = self
+                .client
                 .get(&download_url)
                 .header("Authorization", format!("Bearer {}", token.access_token))
                 .send()
                 .await
-                .map_err(|e| Error::Http(e))?;
+                .map_err(Error::Http)?;
 
             if !response.status().is_success() {
                 return Err(Error::Api(format!(
@@ -761,15 +773,18 @@ impl EpicClient {
                 )));
             }
 
-            let save_data = response.bytes().await
-                .map_err(|e| Error::Http(e))?
-                .to_vec();
+            let save_data = response.bytes().await.map_err(Error::Http)?.to_vec();
 
             // Verify save integrity with size check
-            log::info!("Downloaded cloud save {} ({} bytes)", save_id, save_data.len());
+            log::info!(
+                "Downloaded cloud save {} ({} bytes)",
+                save_id,
+                save_data.len()
+            );
 
             Ok(save_data)
-        }).await
+        })
+        .await
     }
 
     /// Upload a cloud save file
@@ -795,14 +810,15 @@ impl EpicClient {
 
         // Upload save data with retry logic
         self.retry_request(|| async {
-            let response = self.client
+            let response = self
+                .client
                 .put(&upload_url)
                 .header("Authorization", format!("Bearer {}", token.access_token))
                 .header("Content-Type", "application/octet-stream")
                 .body(save_data.to_vec())
                 .send()
                 .await
-                .map_err(|e| Error::Http(e))?;
+                .map_err(Error::Http)?;
 
             if !response.status().is_success() {
                 return Err(Error::Api(format!(
@@ -814,7 +830,8 @@ impl EpicClient {
             log::info!("Successfully uploaded cloud save {}", save_filename);
 
             Ok(())
-        }).await
+        })
+        .await
     }
 }
 

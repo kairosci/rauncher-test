@@ -34,8 +34,8 @@ fn default_config_version() -> u32 {
 
 impl Default for Config {
     fn default() -> Self {
-        let project_dirs = ProjectDirs::from("", "", "rauncher")
-            .expect("Failed to determine project directories");
+        let project_dirs =
+            ProjectDirs::from("", "", "rauncher").expect("Failed to determine project directories");
 
         Self {
             install_dir: project_dirs.data_dir().join("games"),
@@ -56,7 +56,7 @@ impl Config {
 
         if config_path.exists() {
             let contents = fs::read_to_string(&config_path)?;
-            
+
             // Try to parse config
             match toml::from_str::<Config>(&contents) {
                 Ok(mut config) => {
@@ -78,7 +78,7 @@ impl Config {
                     // Merge with defaults for missing values
                     let default = Self::default();
                     let mut config = default;
-                    
+
                     // Try to parse as a toml::Value to extract what we can
                     if let Ok(value) = toml::from_str::<toml::Value>(&contents) {
                         if let Some(table) = value.as_table() {
@@ -95,7 +95,7 @@ impl Config {
                             }
                         }
                     }
-                    
+
                     config.validate()?;
                     config.save()?;
                     Ok(config)
@@ -107,14 +107,18 @@ impl Config {
             Ok(config)
         }
     }
-    
+
     /// Migrate config from older versions
     fn migrate_config(mut config: Config) -> Result<Self> {
         let current_version = config.config_version;
         let target_version = default_config_version();
-        
-        log::info!("Migrating config from v{} to v{}", current_version, target_version);
-        
+
+        log::info!(
+            "Migrating config from v{} to v{}",
+            current_version,
+            target_version
+        );
+
         // Apply migrations sequentially
         if current_version < 1 {
             // Migration to v1: Add new fields with defaults
@@ -126,10 +130,10 @@ impl Config {
                 config.cache_size = defaults.cache_size;
             }
         }
-        
+
         // Update version
         config.config_version = target_version;
-        
+
         Ok(config)
     }
 
@@ -154,7 +158,7 @@ impl Config {
                 )));
             }
         }
-        
+
         // Validate download threads (1-64 reasonable range)
         if self.download_threads == 0 || self.download_threads > 64 {
             return Err(Error::Config(format!(
@@ -162,12 +166,12 @@ impl Config {
                 self.download_threads
             )));
         }
-        
+
         // Validate bandwidth limit if set
         if let Some(limit) = self.bandwidth_limit {
             if limit < 1024 {
                 return Err(Error::Config(
-                    "Bandwidth limit must be at least 1024 bytes/second (1 KB/s)".to_string()
+                    "Bandwidth limit must be at least 1024 bytes/second (1 KB/s)".to_string(),
                 ));
             }
         }

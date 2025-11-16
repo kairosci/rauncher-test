@@ -7,12 +7,12 @@ use tempfile::TempDir;
 fn test_config_creation_and_loading() {
     let temp_dir = TempDir::new().unwrap();
     let config_path = temp_dir.path().join("config.toml");
-    
+
     // Create a config using defaults
     let mut config = Config::default();
     config.install_dir = temp_dir.path().join("games");
     config.log_level = "info".to_string();
-    
+
     // Save it
     let config_str = toml::to_string(&config).unwrap();
     fs::write(&config_path, config_str).unwrap();
@@ -39,7 +39,7 @@ fn test_game_manager_creation() {
     let mut config = Config::default();
     config.install_dir = temp_dir.path().join("games");
     config.log_level = "info".to_string();
-    
+
     let auth = AuthManager::new().unwrap();
     let manager = GameManager::new(config, auth);
 
@@ -53,7 +53,7 @@ fn test_list_installed_games_empty() {
     let mut config = Config::default();
     config.install_dir = temp_dir.path().join("games");
     config.log_level = "info".to_string();
-    
+
     let auth = AuthManager::new().unwrap();
     let manager = GameManager::new(config, auth).unwrap();
 
@@ -85,7 +85,7 @@ fn test_invalid_install_path_handling() {
     let mut config = Config::default();
     config.install_dir = temp_dir.path().join("games");
     config.log_level = "info".to_string();
-    
+
     let auth = AuthManager::new().unwrap();
     let manager = GameManager::new(config, auth).unwrap();
 
