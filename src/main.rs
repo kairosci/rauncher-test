@@ -158,7 +158,7 @@ async fn main() -> Result<()> {
             Commands::Launch { app_name } => {
                 let manager = GameManager::new(config, auth)?;
 
-                match manager.launch_game(&app_name) {
+                match manager.launch_game(&app_name).await {
                     Ok(()) => println!("Game launched successfully!"),
                     Err(e) => {
                         eprintln!("Failed to launch game: {}", e);
