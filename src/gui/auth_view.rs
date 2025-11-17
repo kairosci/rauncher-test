@@ -139,13 +139,23 @@ impl AuthView {
         }
 
         ui.vertical_centered(|ui| {
+            ui.add_space(80.0);
+
+            // Enhanced Epic Games branding
+            ui.heading(
+                RichText::new("EPIC GAMES STORE")
+                    .size(36.0)
+                    .strong()
+                    .color(egui::Color32::WHITE),
+            );
+            ui.add_space(15.0);
+            ui.label(
+                RichText::new("Sign in to your account")
+                    .size(18.0)
+                    .color(egui::Color32::from_rgb(180, 180, 190)),
+            );
+
             ui.add_space(50.0);
-
-            ui.heading(RichText::new("Epic Games Store").size(32.0));
-            ui.add_space(10.0);
-            ui.label(RichText::new("Sign in to your account").size(16.0));
-
-            ui.add_space(40.0);
 
             // Center the content
             ui.with_layout(Layout::top_down(Align::Center), |ui| {
@@ -153,26 +163,33 @@ impl AuthView {
 
                 match &self.state {
                     AuthState::Idle => {
-                        // Show login button
-                        if ui
-                            .button(RichText::new("Sign In with Epic Games").size(18.0))
-                            .clicked()
-                        {
+                        // Show enhanced login button with Epic blue
+                        let button = egui::Button::new(
+                            RichText::new("Sign In with Epic Games")
+                                .size(18.0)
+                                .strong()
+                                .color(egui::Color32::WHITE),
+                        )
+                        .fill(egui::Color32::from_rgb(0, 121, 214))
+                        .min_size(egui::Vec2::new(280.0, 50.0));
+                        
+                        if ui.add(button).clicked() {
                             self.start_authentication();
                         }
 
-                        ui.add_space(20.0);
+                        ui.add_space(30.0);
 
-                        // Instructions
+                        // Enhanced instructions
                         ui.label(
                             RichText::new("Click the button above to authenticate with Epic Games")
-                                .size(14.0)
-                                .color(egui::Color32::GRAY),
+                                .size(15.0)
+                                .color(egui::Color32::from_rgb(160, 160, 170)),
                         );
+                        ui.add_space(8.0);
                         ui.label(
                             RichText::new("You'll receive a code to enter in your browser")
-                                .size(14.0)
-                                .color(egui::Color32::GRAY),
+                                .size(15.0)
+                                .color(egui::Color32::from_rgb(160, 160, 170)),
                         );
                     }
                     AuthState::RequestingDeviceAuth => {
@@ -187,64 +204,98 @@ impl AuthView {
                         }
                     }
                     AuthState::Polling { attempts, .. } => {
-                        // Show authentication in progress
-                        ui.heading(RichText::new("⏳ Authentication in Progress").size(20.0));
-                        ui.add_space(20.0);
+                        // Show authentication in progress with enhanced styling
+                        ui.heading(
+                            RichText::new("⏳ Authentication in Progress")
+                                .size(24.0)
+                                .strong()
+                                .color(egui::Color32::WHITE),
+                        );
+                        ui.add_space(25.0);
 
                         if let (Some(url), Some(code)) = (&self.verification_url, &self.user_code) {
                             ui.label(
                                 RichText::new("Please complete authentication in your browser:")
-                                    .size(16.0),
+                                    .size(17.0)
+                                    .color(egui::Color32::from_rgb(220, 220, 230)),
                             );
-                            ui.add_space(15.0);
+                            ui.add_space(20.0);
 
-                            // Display verification URL in a frame
+                            // Display verification URL in an enhanced frame
                             egui::Frame::none()
-                                .fill(egui::Color32::from_rgb(40, 40, 50))
-                                .stroke(egui::Stroke::new(1.0, egui::Color32::from_rgb(70, 70, 80)))
-                                .inner_margin(15.0)
+                                .fill(egui::Color32::from_rgb(32, 34, 40))
+                                .stroke(egui::Stroke::new(2.0, egui::Color32::from_rgb(0, 121, 214)))
+                                .rounding(egui::Rounding::same(6.0))
+                                .inner_margin(20.0)
                                 .show(ui, |ui| {
                                     ui.horizontal(|ui| {
-                                        ui.label(RichText::new("URL:").strong());
-                                        ui.add_space(5.0);
+                                        ui.label(
+                                            RichText::new("URL:")
+                                                .strong()
+                                                .size(15.0)
+                                                .color(egui::Color32::from_rgb(180, 180, 190)),
+                                        );
+                                        ui.add_space(8.0);
                                         let _ = ui.selectable_label(
                                             false,
-                                            RichText::new(url).monospace(),
+                                            RichText::new(url)
+                                                .monospace()
+                                                .size(14.0)
+                                                .color(egui::Color32::from_rgb(100, 170, 230)),
                                         );
                                     });
 
-                                    ui.add_space(5.0);
+                                    ui.add_space(12.0);
 
                                     ui.horizontal(|ui| {
-                                        ui.label(RichText::new("Code:").strong());
-                                        ui.add_space(5.0);
+                                        ui.label(
+                                            RichText::new("Code:")
+                                                .strong()
+                                                .size(15.0)
+                                                .color(egui::Color32::from_rgb(180, 180, 190)),
+                                        );
+                                        ui.add_space(8.0);
                                         let _ = ui.selectable_label(
                                             false,
-                                            RichText::new(code).monospace().size(20.0),
+                                            RichText::new(code)
+                                                .monospace()
+                                                .size(22.0)
+                                                .strong()
+                                                .color(egui::Color32::WHITE),
                                         );
                                     });
                                 });
 
-                            ui.add_space(15.0);
+                            ui.add_space(20.0);
 
-                            if ui.button("Open in Browser").clicked() {
+                            // Enhanced "Open in Browser" button
+                            let browser_button = egui::Button::new(
+                                RichText::new("🌐 Open in Browser")
+                                    .size(16.0)
+                                    .strong()
+                                    .color(egui::Color32::WHITE),
+                            )
+                            .fill(egui::Color32::from_rgb(0, 121, 214))
+                            .min_size(egui::Vec2::new(200.0, 42.0));
+                            
+                            if ui.add(browser_button).clicked() {
                                 let _ = webbrowser::open(url);
                             }
 
-                            ui.add_space(10.0);
+                            ui.add_space(15.0);
                             ui.label(
                                 RichText::new(format!(
-                                "Waiting for you to complete authentication... (attempt {}/120)",
-                                attempts + 1
-                            ))
-                                .size(14.0)
-                                .color(egui::Color32::LIGHT_BLUE),
+                                    "Waiting for you to complete authentication... (attempt {}/120)",
+                                    attempts + 1
+                                ))
+                                .size(15.0)
+                                .color(egui::Color32::from_rgb(100, 170, 230)),
                             );
                         }
 
-                        ui.add_space(20.0);
+                        ui.add_space(25.0);
 
-                        if ui.button("Cancel").clicked() {
+                        if ui.button(RichText::new("Cancel").size(14.0)).clicked() {
                             self.cancel_authentication();
                         }
                     }

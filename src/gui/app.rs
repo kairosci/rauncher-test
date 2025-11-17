@@ -11,6 +11,7 @@ use crate::Result;
 use super::auth_view::AuthView;
 use super::library_view::{LibraryAction, LibraryView};
 use super::styles;
+use super::components::{Header, StatusBar};
 
 enum AppState {
     Login,
@@ -257,23 +258,24 @@ impl eframe::App for LauncherApp {
             }
         }
 
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.heading("R Games Launcher");
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if let AppState::Library = self.state {
-                        if ui.button("Logout").clicked() {
-                            if let Ok(mut auth) = self.auth.lock() {
-                                let _ = auth.logout();
-                            }
-                            self.state = AppState::Login;
-                            self.library_games.clear();
-                            self.installed_games.clear();
-                        }
+        egui::TopBottomPanel::top("top_panel")
+            .frame(egui::Frame::none()
+                .fill(egui::Color32::from_rgb(22, 24, 28))
+                .inner_margin(egui::Margin::symmetric(20.0, 15.0)))
+            .show(ctx, |ui| {
+                let mut logout_requested = false;
+                let is_authenticated = matches!(self.state, AppState::Library);
+                Header::show(ui, is_authenticated, &mut logout_requested);
+                
+                if logout_requested {
+                    if let Ok(mut auth) = self.auth.lock() {
+                        let _ = auth.logout();
                     }
-                });
+                    self.state = AppState::Login;
+                    self.library_games.clear();
+                    self.installed_games.clear();
+                }
             });
-        });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             match self.state {
@@ -309,15 +311,11 @@ impl eframe::App for LauncherApp {
                 }
             }
 
-            // Status bar at bottom
-            if !self.status_message.is_empty() {
-                ui.separator();
-                ui.horizontal(|ui| {
-                    ui.label(&self.status_message);
-                    if ui.button("Clear").clicked() {
-                        self.status_message.clear();
-                    }
-                });
+            // Status bar at bottom using StatusBar component
+            let mut clear_status = false;
+            StatusBar::show(ui, &self.status_message, &mut clear_status);
+            if clear_status {
+                self.status_message.clear();
             }
         });
 
